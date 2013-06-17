@@ -18,3 +18,6 @@ SOURCES += main.cpp\
 HEADERS  += mainwindow.h \
 
 include(src/qextserialport.pri)
+
+RESOURCES += \
+    res.qrc

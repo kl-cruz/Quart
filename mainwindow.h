@@ -19,6 +19,7 @@
 #include <QThread>
 #include <QFormLayout>
 #include <QTimer>
+#include <QTime>
 #include <QComboBox>
 #include <QTextEdit>
 
@@ -27,6 +28,12 @@ class QextSerialEnumerator;
 
 #define CR 13
 #define LF 10
+#define PING_SEND_VALUE 0x01
+#define PING_RECEIVE_VALUE 0x02
+#define AUTOBAUDING_QUERY "\1\2\2\1"
+#define AUTOBAUDING_QUERY_CHAR_ARRAY {0x01,0x02,0x02,0x01}
+#define AUTOBAUDING_ANSWER "\2\1\1\2"
+#define AUTOBAUDING_ANSWER_CHAR_ARRAY {0x02,0x01,0x01,0x02}
 
 class MainWindow : public QMainWindow
 {
@@ -38,34 +45,30 @@ public:
     
 public slots:
     void fillControls();
+    void fillStatusTab(bool status);
     void dsrChangedHandle(bool status);
+    void setDTR();
+    void setRTS();
 
     void onPortNameChanged(const QString &name);
     void onBaudRateChanged(int idx);
     void onParityChanged(int idx);
     void onDataBitsChanged(int idx);
     void onStopBitsChanged(int idx);
-    void onQueryModeChanged(int idx);
     void onTimeoutChanged(int val);
     void onOpenCloseButtonClicked();
+    void onStartAutoBauding();
+    void autoBaudingTimerHandle();
+
     void onSendButtonClicked();
+
     void onReadyRead();
 
     void onPortAddedOrRemoved();
-/*    void handleAddPixel();
-    void setRMSOnWaitPanel();
-    void setTimeOnWaitPanel();
-    void resetDisablePanelSize();
-    void resizeEvent(QResizeEvent * );*/
+
+    void onPingButtonClicked();
+    void onPingTimeout();
 private slots:
- /*   void on_addToListButton_clicked();
-    void on_deleteFromListButton_clicked();
-    void on_teachNetButton_clicked();
-    void on_stopTeachNetButton_clicked();
-    void on_startCheckButton_clicked();
-    void on_clearCheckCanvasButton_clicked();
-    void on_listWithShapes_itemClicked(QListWidgetItem *item);
-*/
 
 private:
     void createUI();
@@ -80,9 +83,7 @@ private:
     QGroupBox *disableTab;
     QVBoxLayout* disableTabLayout;
     QGroupBox *teachingPanel;
-    QLabel *teachingERMSLabel;
-    QLabel *teachingTimeLabel;
-    QLabel *teachingEraLabel;
+    QLabel *autoBaudingInfoLabel;
     QLabel *busyMovieLabel;
 
     //starttab
@@ -92,8 +93,10 @@ private:
 
     //pingtab
     QWidget *pingTab;
-    QLabel *pingImageLabel;
     QVBoxLayout *pingTabLayout;
+    QScrollBar *pingModeScrollBar;
+    QTextEdit *pingConsole;
+    QPushButton *pingButton;
 
     //consoleTab
     QWidget *textModeTab;
@@ -109,6 +112,8 @@ private:
     QHBoxLayout* signalsPanelLayout;
     QPushButton *setDTRButton;
     QPushButton *setRTSButton;
+    bool DTRstatus=false;
+    bool RTSstatus=false;
     QPushButton *DSRButton;
     QPushButton *CTSButton;
 
@@ -131,6 +136,39 @@ private:
     QComboBox *terminatorBox;
     QLabel *ownTerminatorLabel;
     QTextEdit *ownTerminatorValue;
+    QString terminatorString="";
+    QLabel *parityLabel;
+    QComboBox *parityBox;
+    QLabel *timeoutEnableLabel;
+    QComboBox *timeoutEnableBox;
+    QLabel *timeoutLabel;
+    QSpinBox *timeoutValue;
+
+    QLabel *autoBaudingLabel;
+    QPushButton *autoBaudingButton;
+    QTimer *autoBaudingTimeoutTimer;
+    QLabel *openClosePortLabel;
+    QPushButton *openClosePortButton;
+    QFormLayout *optionsLayout;
+
+    //Port info Tab
+    QWidget *portinfoTab;
+    QLabel *portEnabledLabel;
+    QLabel *portEnabledValue;
+    QLabel *setPortLabel;
+    QLabel *setPortValue;
+    QLabel *setBaudRateLabel;
+    QLabel *setBaudRateValue;
+    QLabel *setCharacterFormatLabel;
+    QLabel *setCharacterFormatValue;
+    QLabel *setStopBitsLabel;
+    QLabel *setStopBitsValue;
+    QLabel *setFlowControlLabel;
+    QLabel *setFlowControlValue;
+    /*QLabel *terminatorLabel;
+    QComboBox *terminatorBox;
+    QLabel *ownTerminatorLabel;
+    QTextEdit *ownTerminatorValue;
     QLabel *parityLabel;
     QComboBox *parityBox;
     QLabel *timeoutEnableLabel;
@@ -141,8 +179,8 @@ private:
     QLabel *autoBaudingLabel;
     QPushButton *autoBaudingButton;
     QLabel *openClosePortLabel;
-    QPushButton *openClosePortButton;
-    QFormLayout *optionsLayout;
+    QPushButton *openClosePortButton;*/
+    QFormLayout *portinfoLayout;
 
     //starttab
     QWidget *binaryTab;
@@ -151,6 +189,15 @@ private:
     QTimer *timer;
     QextSerialPort *port;
     QextSerialEnumerator *enumerator;
+
+    //ping
+    QTime pingTime;
+    QTimer *pingTimeoutTimer;
+    int pingCounter;
+    /*
+time.start();
+time.elapsed();
+*/
 
 };
 
