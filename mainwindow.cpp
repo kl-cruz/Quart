@@ -51,8 +51,14 @@ void MainWindow::fillControls()
      flowControlBox->addItem("Kontrola sprzętowa (handshake): DTR/DSR, RTS/CTS",FLOW_HARDWARE);
      flowControlBox->addItem("Kontrola programowa: XON/XOFF",FLOW_XONXOFF);
 
+     ownTerminatorChar1Box->addItem("Brak",0);
+     ownTerminatorChar2Box->addItem("Brak",0);
 
-     ownTerminatorValue->setText("Wpisz tutaj własny terminator. Znaki zapisz szesnastkowo, oddziel przecinkiem.");
+     for(char i=0;i<127;++i)
+     {
+         ownTerminatorChar1Box->addItem(QString("%1").arg(static_cast<unsigned short>(static_cast<unsigned char>(i))),i);
+         ownTerminatorChar2Box->addItem(QString("%1").arg(static_cast<unsigned short>(static_cast<unsigned char>(i))),i);
+     }
 
      characterFormatBox->addItem("5", DATA_5);
      characterFormatBox->addItem("6", DATA_6);
@@ -77,10 +83,16 @@ void MainWindow::fillControls()
      terminatorBox->addItem("Własny (wpisz poniżej)","OWN");
 
      DSRButton->setStyleSheet("background-color: red;color:black");
+     CTSButton->setStyleSheet("background-color: red;color:black");
      setRTSButton->setStyleSheet("background-color:red;color:black");
      setDTRButton->setStyleSheet("background-color:red;color:black");
 
      fillStatusTab(false);
+     ownTerminatorChar1Box->setEnabled(false);
+     ownTerminatorChar2Box->setEnabled(false);
+     DTRstatus=true;
+     RTSstatus=true;
+     terminatorString="";
 }
 
 void MainWindow::fillStatusTab(bool status)
@@ -91,12 +103,19 @@ void MainWindow::fillStatusTab(bool status)
         portEnabledValue->setStyleSheet("background-color:green;color:white");
         setPortValue->setText(portBox->currentText());
         setBaudRateValue->setText(QString("%1").arg(baudRateBox->itemData(baudRateBox->currentIndex()).toInt()));
-
+        setCharacterFormatValue->setText(characterFormatBox->itemText(characterFormatBox->currentIndex()));
+        setFlowControlValue->setText(flowControlBox->itemText(flowControlBox->currentIndex()));
+        setStopBitsValue->setText(stopBitsBox->itemText(stopBitsBox->currentIndex()));
     }
     else
     {
         portEnabledValue->setText("nieaktywny");
         portEnabledValue->setStyleSheet("background-color:red;color:black");
+        setPortValue->setText("");
+        setBaudRateValue->setText("");
+        setCharacterFormatValue->setText("");
+        setFlowControlValue->setText("");
+        setStopBitsValue->setText("");
     }
 }
 
@@ -113,13 +132,14 @@ void MainWindow::startConnection()
     stopBitsBox->setEnabled(false);
     flowControlBox->setEnabled(false);
     terminatorBox->setEnabled(false);
-    ownTerminatorValue->setEnabled(false);
+    ownTerminatorChar1Box->setEnabled(false);
+    ownTerminatorChar2Box->setEnabled(false);
     parityBox->setEnabled(false);
     timeoutEnableBox->setEnabled(false);
     timeoutValue->setEnabled(false);
     autoBaudingButton->setEnabled(false);
     autoBaudingEnabledCheckBox->setEnabled(false);
-
+    fillStatusTab(true);
 
 }
 
@@ -133,6 +153,16 @@ void MainWindow::stopConnection()
     {
         autoBaudingButton->setEnabled(true);
     }
+    if(terminatorBox->itemData(terminatorBox->currentIndex()).toString()=="OWN")
+    {
+        ownTerminatorChar1Box->setEnabled(true);
+        ownTerminatorChar2Box->setEnabled(true);
+    }
+    else
+    {
+        ownTerminatorChar1Box->setEnabled(false);
+        ownTerminatorChar2Box->setEnabled(false);
+    }
     textModeTab->setEnabled(false);
     binaryTab->setEnabled(false);
     portBox->setEnabled(true);
@@ -141,12 +171,14 @@ void MainWindow::stopConnection()
     stopBitsBox->setEnabled(true);
     flowControlBox->setEnabled(true);
     terminatorBox->setEnabled(true);
-    ownTerminatorValue->setEnabled(true);
+    ownTerminatorChar1Box->setEnabled(true);
+    ownTerminatorChar2Box->setEnabled(true);
     parityBox->setEnabled(true);
     timeoutEnableBox->setEnabled(true);
     timeoutValue->setEnabled(true);
 
     autoBaudingEnabledCheckBox->setEnabled(true);
+    fillStatusTab(false);
 }
 
 void MainWindow::dsrChangedHandle(bool status)
@@ -208,7 +240,8 @@ void MainWindow::onReadyRead()
         else
             if ((fromPort.toStdString().c_str()[0]==PING_RECEIVE_VALUE)&& (fromPort.count()==1)){
                 unsigned int elapsed = pingTime.elapsed();
-                pingConsole->append("Odebrano odpowiedź w czasie "+QString("%1").arg(elapsed)+"ms");
+                //pingConsole->append("Odebrano odpowiedź w czasie "+QString("%1").arg(elapsed)+"ms");
+                pingInfo+="Odebrano odpowiedź w czasie "+QString("%1").arg(elapsed)+"ms\n";
                 pingAvgCounter++;
                 pingAvgTime+=elapsed;
                 checkCounterAndSendNextPing();
@@ -296,15 +329,9 @@ void MainWindow::onOpenCloseButtonClicked()
         if (port->isOpen()) {
         statusBar->showMessage("Port jest otwarty");
         lineStatusTimer->start();
+        setDTR();
+        setRTS();
         openClosePortButton->setText("Zakończ transmisję");
-        fillStatusTab(true);
-        textModeTab->setEnabled(true);
-        if(terminatorBox->itemData(terminatorBox->currentIndex()).toString()=="OWN")
-        {
-            //PARSE TERMINATOR
-        }
-        else
-            terminatorString=terminatorBox->itemData(terminatorBox->currentIndex()).toString();
         tabWidget->setCurrentIndex(2);
         startConnection();
         }
@@ -318,15 +345,62 @@ void MainWindow::onOpenCloseButtonClicked()
         port->close();
         statusBar->showMessage("Port jest zamknięty");
         openClosePortButton->setText("Uruchom transmisję");
-        fillStatusTab(false);
-        textModeTab->setEnabled(false);
         stopConnection();
+        DTRstatus=true;
+        RTSstatus=true;
     }
 
     if (port->isOpen() && port->queryMode() == QextSerialPort::Polling)
         timer->start();
     else
         timer->stop();
+}
+
+void MainWindow::onTerminatorChanged(int index)
+{
+    if(terminatorBox->itemData(index).toString()=="OWN")
+    {
+        ownTerminatorChar1Box->setEnabled(true);
+        ownTerminatorChar2Box->setEnabled(true);
+    }
+    else{
+        ownTerminatorChar1Box->setEnabled(false);
+        ownTerminatorChar2Box->setEnabled(false);
+        terminatorString=terminatorBox->itemData(index).toString();
+    for(int i=0;i<terminatorString.count();++i)
+    {
+        std::cout<<"Terminator:"<<static_cast<unsigned short>(static_cast<unsigned char>(terminatorString.toStdString().c_str()[i]))<<std::endl;
+    }
+    }
+
+}
+
+void MainWindow::onChar1TerminatorChanged(int index)
+{
+    terminatorString.clear();
+    if(index>0)
+        terminatorString+=ownTerminatorChar1Box->itemData(index).toChar();
+    if(ownTerminatorChar2Box->currentIndex()>0)
+        terminatorString+=ownTerminatorChar2Box->itemData(ownTerminatorChar2Box->currentIndex()).toChar();
+    for(int i=0;i<terminatorString.count();++i)
+    {
+        std::cout<<"Terminator:"<<static_cast<unsigned short>(static_cast<unsigned char>(terminatorString.toStdString().c_str()[i]))<<std::endl;
+    }
+
+}
+
+void MainWindow::onChar2TerminatorChanged(int index)
+{
+    terminatorString.clear();
+    if(ownTerminatorChar1Box->currentIndex()>0)
+        terminatorString+=ownTerminatorChar1Box->itemData(ownTerminatorChar1Box->currentIndex()).toChar();
+    if(index>0)
+        terminatorString+=ownTerminatorChar2Box->itemData(index).toChar();
+
+    for(int i=0;i<terminatorString.count();++i)
+    {
+        std::cout<<"Terminator:"<<static_cast<unsigned short>(static_cast<unsigned char>(terminatorString.toStdString().c_str()[i]))<<std::endl;
+    }
 }
 
 void MainWindow::onStartAutoBauding()
@@ -398,18 +472,19 @@ void MainWindow::onAutoBaudingCheckBoxEnable(int)
     }
 }
 
-void MainWindow::checkNextAutoBauding()
-{
-
-}
-
 void MainWindow::onSendButtonClicked()
 {
     if (port->isOpen() && !sendTextConsole->toPlainText().isEmpty()){
         QString toSend=sendTextConsole->toPlainText().toLatin1()+terminatorString;
+        std::cout<<"wysyłany tekst:"<<toSend.toStdString()<<" Terminator:"<<terminatorString.toStdString()<<std::endl;
         port->write(toSend.toStdString().c_str());
         sendTextConsole->clear();
     }
+}
+
+void MainWindow::onClearButtonClicked()
+{
+    textConsole->clear();
 }
 
 void MainWindow::onLineStatusCheck()
@@ -442,15 +517,17 @@ void MainWindow::onLineStatusCheck()
 
 void MainWindow::onPingButtonClicked()
 {
+    pingConsole->clear();
     pingConsole->append("\n->PING rs232");
     if (port->isOpen()){
         char ping=PING_SEND_VALUE;
         port->write(&ping,1);
         pingTime.restart();
         pingTimeoutTimer->start();
-        pingCounter=5;
+        pingCounter=20;
         pingAvgCounter=0;
         pingAvgTime=0;
+        pingInfo="";
     }
     else
     {
@@ -460,7 +537,7 @@ void MainWindow::onPingButtonClicked()
 
 void MainWindow::onPingTimeout()
 {
-    pingConsole->append("Klient jest niedostępny.");
+    pingInfo+="Klient jest niedostępny.\n";
     checkCounterAndSendNextPing();
     //pingTimeoutTimer->stop();
 }
@@ -481,7 +558,11 @@ void MainWindow::checkCounterAndSendNextPing()
      }else
          if (pingCounter<=0)
          {
-             pingConsole->append("Srednia prędkość z poprawnych transferów: "+QString("%1").arg(pingAvgTime*1.0/(pingAvgCounter*1.0))+"ms (poprawnych pakietów: "+QString("%1").arg(pingAvgCounter)+")");
+             if(pingAvgCounter>0){
+                pingConsole->append(pingInfo);
+                 pingConsole->append("Srednia prędkość z poprawnych transferów: "+QString("%1").arg(pingAvgTime*1.0/(pingAvgCounter*1.0))+"ms (poprawnych pakietów: "+QString("%1").arg(pingAvgCounter)+")");
+             }else
+                 pingConsole->append("Nie zanotowano poprawnych odczytów z portu");
 
          }
 }
@@ -565,7 +646,8 @@ void MainWindow::createUI()
     stopBitsLabel=new QLabel("Ilość bitów stopu");
     flowControlLabel=new QLabel("Kontrola przepływu");
     terminatorLabel=new QLabel("Wybór terminatora");
-    ownTerminatorLabel=new QLabel("Własny terminatora");
+    ownTerminatorChar1Label=new QLabel("Własny terminator, znak 1");
+    ownTerminatorChar2Label=new QLabel("Własny terminator, znak 2");
     parityLabel=new QLabel("Parzystość");
     timeoutEnableLabel=new QLabel("Aktywność ograniczenia czasowego transakcji");
     timeoutLabel=new QLabel("Ograniczenie czasowe transakcji");
@@ -594,7 +676,9 @@ void MainWindow::createUI()
 
     terminatorBox= new QComboBox();
 
-    ownTerminatorValue=new QTextEdit();
+    ownTerminatorChar1Box=new QComboBox();
+
+    ownTerminatorChar2Box=new QComboBox();
 
     parityBox= new QComboBox();
 
@@ -617,7 +701,8 @@ void MainWindow::createUI()
     optionsLayout->addRow(stopBitsLabel,stopBitsBox);
     optionsLayout->addRow(flowControlLabel,flowControlBox);
     optionsLayout->addRow(terminatorLabel,terminatorBox);
-    optionsLayout->addRow(ownTerminatorLabel,ownTerminatorValue);
+    optionsLayout->addRow(ownTerminatorChar1Label,ownTerminatorChar1Box);
+    optionsLayout->addRow(ownTerminatorChar2Label,ownTerminatorChar2Box);
     optionsLayout->addRow(parityLabel,parityBox);
     optionsLayout->addRow(timeoutEnableLabel,timeoutEnableBox);
     optionsLayout->addRow(timeoutLabel,timeoutValue);
@@ -669,7 +754,10 @@ void MainWindow::createUI()
     textModeButtonsLayout = new QHBoxLayout(consoleButtons);
     sendButton=new QPushButton();
     sendButton->setText("Wyślij");
+    clearConsoleButton=new QPushButton();
+    clearConsoleButton->setText("Wyczyść konsolę");
     textModeButtonsLayout->addWidget(sendButton);
+    textModeButtonsLayout->addWidget(clearConsoleButton);
     textModeTabLayout->addWidget(textConsole);
     textModeTabLayout->addWidget(signalsPanel);
     textModeTabLayout->addWidget(sendTextConsole);
@@ -774,10 +862,10 @@ void MainWindow::createUI()
     fillControls();
 
     timer = new QTimer(this);
-    timer->setInterval(25);
+    timer->setInterval(5);
     //! [1]
     PortSettings settings = {BAUD9600, DATA_8, PAR_NONE, STOP_1, FLOW_OFF, 20};
-    port = new QextSerialPort(portBox->currentText(), settings, QextSerialPort::Polling);
+    port = new QextSerialPort(portBox->currentText(), settings, QextSerialPort::EventDriven);//QextSerialPort::Polling);
     lineStatusTimer=new QTimer(this);
     lineStatusTimer->setInterval(100);
     //! [1]
@@ -790,11 +878,17 @@ void MainWindow::createUI()
     connect(characterFormatBox, SIGNAL(currentIndexChanged(int)), SLOT(onDataBitsChanged(int)));
     connect(stopBitsBox, SIGNAL(currentIndexChanged(int)), SLOT(onStopBitsChanged(int)));
     connect(timeoutValue, SIGNAL(valueChanged(int)), SLOT(onTimeoutChanged(int)));
+    connect(terminatorBox,SIGNAL(currentIndexChanged(int)),SLOT(onTerminatorChanged(int)));
+    connect(ownTerminatorChar1Box,SIGNAL(currentIndexChanged(int)),SLOT(onChar1TerminatorChanged(int)));
+    connect(ownTerminatorChar2Box,SIGNAL(currentIndexChanged(int)),SLOT(onChar2TerminatorChanged(int)));
 
     connect(portBox, SIGNAL(editTextChanged(QString)), SLOT(onPortNameChanged(QString)));
     connect(openClosePortButton, SIGNAL(clicked()), SLOT(onOpenCloseButtonClicked()));
     connect(sendButton, SIGNAL(clicked()), SLOT(onSendButtonClicked()));
-    connect(timer, SIGNAL(timeout()), SLOT(onReadyRead()));
+    connect(clearConsoleButton,SIGNAL(clicked()),SLOT(onClearButtonClicked()));
+    if(port->queryMode()==QextSerialPort::Polling){
+        connect(timer, SIGNAL(timeout()), SLOT(onReadyRead()));
+    }
     connect(port, SIGNAL(readyRead()), SLOT(onReadyRead()));
     connect(port, SIGNAL(dsrChanged(bool)), SLOT(dsrChangedHandle(bool)));
     connect(autoBaudingButton,SIGNAL(clicked()),SLOT(onStartAutoBauding()));

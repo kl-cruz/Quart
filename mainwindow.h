@@ -16,7 +16,6 @@
 #include <pthread.h>
 #include <QTextStream>
 #include <QScrollBar>
-#include <QThread>
 #include <QFormLayout>
 #include <QTimer>
 #include <QTime>
@@ -62,13 +61,16 @@ public slots:
     void onStopBitsChanged(int idx);
     void onTimeoutChanged(int val);
     void onOpenCloseButtonClicked();
+    void onTerminatorChanged(int index);
+    void onChar1TerminatorChanged(int index);
+    void onChar2TerminatorChanged(int index);
 
     void onStartAutoBauding();
     void autoBaudingTimerHandle();
     void onAutoBaudingCheckBoxEnable(int);
-    void checkNextAutoBauding();
 
     void onSendButtonClicked();
+    void onClearButtonClicked();
 
     void onLineStatusCheck();
     void onReadyRead();
@@ -118,12 +120,13 @@ private:
     QHBoxLayout* textModeButtonsLayout;
     QWidget *consoleButtons;
     QPushButton *sendButton;
+    QPushButton *clearConsoleButton;
     QWidget *signalsPanel;
     QHBoxLayout* signalsPanelLayout;
     QPushButton *setDTRButton;
     QPushButton *setRTSButton;
-    bool DTRstatus=false;
-    bool RTSstatus=false;
+    bool DTRstatus;
+    bool RTSstatus;
     QPushButton *DSRButton;
     QPushButton *CTSButton;
 
@@ -144,9 +147,11 @@ private:
     QComboBox *flowControlBox;
     QLabel *terminatorLabel;
     QComboBox *terminatorBox;
-    QLabel *ownTerminatorLabel;
-    QTextEdit *ownTerminatorValue;
-    QString terminatorString="";
+    QLabel *ownTerminatorChar1Label;
+    QComboBox *ownTerminatorChar1Box;
+    QLabel *ownTerminatorChar2Label;
+    QComboBox *ownTerminatorChar2Box;
+    QString terminatorString;
     QLabel *parityLabel;
     QComboBox *parityBox;
     QLabel *timeoutEnableLabel;
@@ -178,21 +183,7 @@ private:
     QLabel *setStopBitsValue;
     QLabel *setFlowControlLabel;
     QLabel *setFlowControlValue;
-    /*QLabel *terminatorLabel;
-    QComboBox *terminatorBox;
-    QLabel *ownTerminatorLabel;
-    QTextEdit *ownTerminatorValue;
-    QLabel *parityLabel;
-    QComboBox *parityBox;
-    QLabel *timeoutEnableLabel;
-    QComboBox *timeoutEnableBox;
-    QLabel *timeoutLabel;
-    QSpinBox *timeoutValue;
 
-    QLabel *autoBaudingLabel;
-    QPushButton *autoBaudingButton;
-    QLabel *openClosePortLabel;
-    QPushButton *openClosePortButton;*/
     QFormLayout *portinfoLayout;
 
     //starttab
@@ -210,10 +201,7 @@ private:
     int pingCounter;
     int pingAvgTime;
     int pingAvgCounter;
-    /*
-time.start();
-time.elapsed();
-*/
+    QString pingInfo;
 
 };
 
