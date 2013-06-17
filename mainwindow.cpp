@@ -19,8 +19,9 @@ MainWindow::~MainWindow()
 
 void MainWindow::fillControls()
 {
-
+#ifndef Q_OS_WIN
     baudRateBox->addItem("150",BAUD150);
+#endif
     baudRateBox->addItem("300",BAUD300);
     baudRateBox->addItem("600",BAUD600);
     baudRateBox->addItem("1200",BAUD1200);
@@ -31,8 +32,11 @@ void MainWindow::fillControls()
     baudRateBox->addItem("38400",BAUD38400);
     baudRateBox->addItem("57600",BAUD57600);
     baudRateBox->addItem("115200",BAUD115200);
+#ifndef Q_OS_WIN
     baudRateBox->setCurrentIndex(6);
-
+#else
+    baudRateBox->setCurrentIndex(5);
+#endif
 
      foreach (QextPortInfo info, QextSerialEnumerator::getPorts())
      {
@@ -96,6 +100,55 @@ void MainWindow::fillStatusTab(bool status)
     }
 }
 
+void MainWindow::startConnection()
+{
+    if(autoBaudingEnabledCheckBox->checkState()!=Qt::Checked)
+    {
+        binaryTab->setEnabled(true);
+    }
+    textModeTab->setEnabled(true);
+    portBox->setEnabled(false);
+    baudRateBox->setEnabled(false);
+    characterFormatBox->setEnabled(false);
+    stopBitsBox->setEnabled(false);
+    flowControlBox->setEnabled(false);
+    terminatorBox->setEnabled(false);
+    ownTerminatorValue->setEnabled(false);
+    parityBox->setEnabled(false);
+    timeoutEnableBox->setEnabled(false);
+    timeoutValue->setEnabled(false);
+    autoBaudingButton->setEnabled(false);
+    autoBaudingEnabledCheckBox->setEnabled(false);
+
+
+}
+
+void MainWindow::stopConnection()
+{
+    if(autoBaudingEnabledCheckBox->checkState()!=Qt::Checked)
+    {
+        autoBaudingButton->setEnabled(false);
+    }
+    else
+    {
+        autoBaudingButton->setEnabled(true);
+    }
+    textModeTab->setEnabled(false);
+    binaryTab->setEnabled(false);
+    portBox->setEnabled(true);
+    baudRateBox->setEnabled(true);
+    characterFormatBox->setEnabled(true);
+    stopBitsBox->setEnabled(true);
+    flowControlBox->setEnabled(true);
+    terminatorBox->setEnabled(true);
+    ownTerminatorValue->setEnabled(true);
+    parityBox->setEnabled(true);
+    timeoutEnableBox->setEnabled(true);
+    timeoutValue->setEnabled(true);
+
+    autoBaudingEnabledCheckBox->setEnabled(true);
+}
+
 void MainWindow::dsrChangedHandle(bool status)
 {
     if(status)
@@ -104,6 +157,17 @@ void MainWindow::dsrChangedHandle(bool status)
     }
     else{
         DSRButton->setStyleSheet("background-color: green;color:white");
+    }
+}
+
+void MainWindow::ctsChangedHandle(bool status)
+{
+    if(status)
+    {
+        CTSButton->setStyleSheet("background-color: red;color:black");
+    }
+    else{
+        CTSButton->setStyleSheet("background-color: green;color:white");
     }
 }
 
@@ -143,31 +207,38 @@ void MainWindow::onReadyRead()
         }
         else
             if ((fromPort.toStdString().c_str()[0]==PING_RECEIVE_VALUE)&& (fromPort.count()==1)){
-                pingTimeoutTimer->stop();
                 unsigned int elapsed = pingTime.elapsed();
                 pingConsole->append("Odebrano odpowiedź w czasie "+QString("%1").arg(elapsed)+"ms");
+                pingAvgCounter++;
+                pingAvgTime+=elapsed;
+                checkCounterAndSendNextPing();
+
         }
         else
-                if(fromPort.toStdString()==AUTOBAUDING_QUERY)
+                if((fromPort.toStdString()==AUTOBAUDING_QUERY) && (autoBaudingEnabledCheckBox->checkState()==Qt::Checked))
                 {
                     std::cout<<"Autobauding query"<<std::endl;
                     char resp[]=AUTOBAUDING_ANSWER_CHAR_ARRAY;
                     port->write(resp,sizeof(resp));
+                    return;
 
                 }
-        else if(fromPort.toStdString()==AUTOBAUDING_ANSWER)
+                else if((fromPort.toStdString()==AUTOBAUDING_ANSWER) && (autoBaudingEnabledCheckBox->checkState()==Qt::Checked))
                 {
                     std::cout<<"Autobauding answer"<<std::endl;
                     autoBaudingTimeoutTimer->stop();
                     disableTab->setVisible(false);
+                    return;
                 }
-        else
-        {
+
         textConsole->moveCursor(QTextCursor::End);
         textConsole->insertPlainText(fromPort);
-        }
+
         }
     }
+
+
+
 }
 
 void MainWindow::onPortAddedOrRemoved()
@@ -224,6 +295,7 @@ void MainWindow::onOpenCloseButtonClicked()
         port->open(QIODevice::ReadWrite);
         if (port->isOpen()) {
         statusBar->showMessage("Port jest otwarty");
+        lineStatusTimer->start();
         openClosePortButton->setText("Zakończ transmisję");
         fillStatusTab(true);
         textModeTab->setEnabled(true);
@@ -234,6 +306,7 @@ void MainWindow::onOpenCloseButtonClicked()
         else
             terminatorString=terminatorBox->itemData(terminatorBox->currentIndex()).toString();
         tabWidget->setCurrentIndex(2);
+        startConnection();
         }
         else
         {
@@ -241,12 +314,13 @@ void MainWindow::onOpenCloseButtonClicked()
         }
     }
     else {
+        lineStatusTimer->stop();
         port->close();
         statusBar->showMessage("Port jest zamknięty");
         openClosePortButton->setText("Uruchom transmisję");
         fillStatusTab(false);
         textModeTab->setEnabled(false);
-
+        stopConnection();
     }
 
     if (port->isOpen() && port->queryMode() == QextSerialPort::Polling)
@@ -260,22 +334,8 @@ void MainWindow::onStartAutoBauding()
     autoBaudingTimeoutTimer->start();
     baudRateBox->setCurrentIndex(0);
     disableTab->setVisible(true);
-
-}
-
-void MainWindow::autoBaudingTimerHandle()
-{
     if (port->isOpen())
         port->close();
-    if(baudRateBox->currentIndex()==baudRateBox->count()-1)
-    {
-        baudRateBox->setCurrentIndex(0);
-    }
-    else{
-    baudRateBox->setCurrentIndex(baudRateBox->currentIndex()+1);
-    }
-    onBaudRateChanged(baudRateBox->currentIndex());
-
     port->setPortName(portBox->currentText());
     port->open(QIODevice::ReadWrite);
     timer->start();
@@ -294,12 +354,90 @@ void MainWindow::autoBaudingTimerHandle()
     }
 }
 
+void MainWindow::autoBaudingTimerHandle()
+{
+    if (port->isOpen())
+        port->close();
+    if(baudRateBox->currentIndex()==baudRateBox->count()-1)
+    {
+        disableTab->setVisible(false);
+        autoBaudingTimeoutTimer->stop();
+        timer->stop();
+        QMessageBox::information(NULL, "Ostrzeżenie!", "Autobauding zakończony niepowodzeniem!");
+    }
+    else{
+    baudRateBox->setCurrentIndex(baudRateBox->currentIndex()+1);
+    }
+    onBaudRateChanged(baudRateBox->currentIndex());
+
+    port->setPortName(portBox->currentText());
+    port->open(QIODevice::ReadWrite);
+
+    if (port->isOpen()){
+        char autoBaud[]=AUTOBAUDING_QUERY_CHAR_ARRAY;
+        port->write(autoBaud,sizeof(autoBaud));
+    }
+    else
+    {
+        disableTab->setVisible(false);
+        autoBaudingTimeoutTimer->stop();
+        QMessageBox::information(NULL, "Ostrzeżenie!", "Port jest nieaktywny!");
+        timer->stop();
+    }
+}
+
+void MainWindow::onAutoBaudingCheckBoxEnable(int)
+{
+    if(autoBaudingEnabledCheckBox->checkState()==Qt::Checked)
+    {
+        autoBaudingButton->setEnabled(true);
+    }
+    else
+    {
+        autoBaudingButton->setEnabled(false);
+    }
+}
+
+void MainWindow::checkNextAutoBauding()
+{
+
+}
+
 void MainWindow::onSendButtonClicked()
 {
     if (port->isOpen() && !sendTextConsole->toPlainText().isEmpty()){
         QString toSend=sendTextConsole->toPlainText().toLatin1()+terminatorString;
         port->write(toSend.toStdString().c_str());
+        sendTextConsole->clear();
     }
+}
+
+void MainWindow::onLineStatusCheck()
+{
+    /* LS_CTS      CTS
+     LS_DSR      DSR
+     LS_DCD      DCD
+     LS_RI       RI
+     LS_RTS      RTS (POSIX only)
+     LS_DTR      DTR (POSIX only)*/
+             ulong status=port->lineStatus();
+             if(status&LS_DSR)
+             {
+                 dsrChangedHandle(true);
+             }
+             else
+             {
+                 dsrChangedHandle(false);
+             }
+
+             if(status&LS_CTS)
+             {
+                 ctsChangedHandle(true);
+             }
+             else
+             {
+                 ctsChangedHandle(false);
+             }
 }
 
 void MainWindow::onPingButtonClicked()
@@ -310,19 +448,42 @@ void MainWindow::onPingButtonClicked()
         port->write(&ping,1);
         pingTime.restart();
         pingTimeoutTimer->start();
+        pingCounter=5;
+        pingAvgCounter=0;
+        pingAvgTime=0;
     }
     else
     {
         pingConsole->append("Port wyłączony.");
     }
-
-
 }
 
 void MainWindow::onPingTimeout()
 {
     pingConsole->append("Klient jest niedostępny.");
+    checkCounterAndSendNextPing();
+    //pingTimeoutTimer->stop();
+}
+
+void MainWindow::checkCounterAndSendNextPing()
+{
     pingTimeoutTimer->stop();
+
+    if (port->isOpen() && (--pingCounter>0)){
+            char ping=PING_SEND_VALUE;
+            port->write(&ping,1);
+            pingTime.restart();
+            pingTimeoutTimer->start();
+     }else
+     if (!port->isOpen())
+     {
+        QMessageBox::information(NULL, "Ostrzeżenie!", "Port jest nieaktywny!");
+     }else
+         if (pingCounter<=0)
+         {
+             pingConsole->append("Srednia prędkość z poprawnych transferów: "+QString("%1").arg(pingAvgTime*1.0/(pingAvgCounter*1.0))+"ms (poprawnych pakietów: "+QString("%1").arg(pingAvgCounter)+")");
+
+         }
 }
 
 
@@ -411,8 +572,12 @@ void MainWindow::createUI()
 
     autoBaudingLabel=new QLabel("Uruchom autobauding");
     autoBaudingTimeoutTimer=new QTimer(this);
-    autoBaudingTimeoutTimer->setInterval(2000);
+    autoBaudingTimeoutTimer->setInterval(1001);
     autoBaudingTimeoutTimer->stop();
+
+    autoBaudingEnabledLabel=new QLabel("Aktywacja autobaudingu (deaktywuje wysyłanie binarne)");
+    autoBaudingEnabledCheckBox=new QCheckBox();
+
     openClosePortLabel=new QLabel("Uruchamianie portu");
 
 
@@ -441,6 +606,7 @@ void MainWindow::createUI()
     timeoutValue ->setMaximum(9999);
 
     autoBaudingButton = new QPushButton("Uruchom");
+    autoBaudingButton->setEnabled(false);
     openClosePortButton = new QPushButton("Uruchom transmisję");
 
     optionsLayout=new QFormLayout;
@@ -455,6 +621,7 @@ void MainWindow::createUI()
     optionsLayout->addRow(parityLabel,parityBox);
     optionsLayout->addRow(timeoutEnableLabel,timeoutEnableBox);
     optionsLayout->addRow(timeoutLabel,timeoutValue);
+    optionsLayout->addRow(autoBaudingEnabledLabel,autoBaudingEnabledCheckBox);
     optionsLayout->addRow(autoBaudingLabel,autoBaudingButton);
     optionsLayout->addRow(openClosePortLabel,openClosePortButton);
     optionsTab->setLayout(optionsLayout);
@@ -543,7 +710,7 @@ void MainWindow::createUI()
     tabWidget->addTab(binaryTab, QString());
     tabWidget->setTabText(tabWidget->indexOf(binaryTab), QApplication::translate("MainWindow", "Tryb binarny", 0));
 
-
+    binaryTab->setEnabled(false);
     //portinfo
     portinfoTab=new QWidget();
     portinfoTab->setObjectName(QStringLiteral("portinfoTab"));
@@ -607,10 +774,12 @@ void MainWindow::createUI()
     fillControls();
 
     timer = new QTimer(this);
-    timer->setInterval(10);
+    timer->setInterval(25);
     //! [1]
     PortSettings settings = {BAUD9600, DATA_8, PAR_NONE, STOP_1, FLOW_OFF, 20};
     port = new QextSerialPort(portBox->currentText(), settings, QextSerialPort::Polling);
+    lineStatusTimer=new QTimer(this);
+    lineStatusTimer->setInterval(100);
     //! [1]
 
     enumerator = new QextSerialEnumerator(this);
@@ -630,7 +799,9 @@ void MainWindow::createUI()
     connect(port, SIGNAL(dsrChanged(bool)), SLOT(dsrChangedHandle(bool)));
     connect(autoBaudingButton,SIGNAL(clicked()),SLOT(onStartAutoBauding()));
     connect(autoBaudingTimeoutTimer,SIGNAL(timeout()),SLOT(autoBaudingTimerHandle()));
+    connect(autoBaudingEnabledCheckBox,SIGNAL(stateChanged(int)),SLOT(onAutoBaudingCheckBoxEnable(int)));
 
+    connect(lineStatusTimer, SIGNAL(timeout()), SLOT(onLineStatusCheck()));
     connect(setDTRButton, SIGNAL(clicked()), SLOT(setDTR()));
     connect(setRTSButton, SIGNAL(clicked()), SLOT(setRTS()));
 

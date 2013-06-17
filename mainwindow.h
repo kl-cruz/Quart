@@ -22,6 +22,7 @@
 #include <QTime>
 #include <QComboBox>
 #include <QTextEdit>
+#include <QCheckBox>
 
 class QextSerialPort;
 class QextSerialEnumerator;
@@ -30,10 +31,10 @@ class QextSerialEnumerator;
 #define LF 10
 #define PING_SEND_VALUE 0x01
 #define PING_RECEIVE_VALUE 0x02
-#define AUTOBAUDING_QUERY "\1\2\2\1"
-#define AUTOBAUDING_QUERY_CHAR_ARRAY {0x01,0x02,0x02,0x01}
-#define AUTOBAUDING_ANSWER "\2\1\1\2"
-#define AUTOBAUDING_ANSWER_CHAR_ARRAY {0x02,0x01,0x01,0x02}
+#define AUTOBAUDING_QUERY "\5"//\2\1"
+#define AUTOBAUDING_QUERY_CHAR_ARRAY {0x05}//,0x02,0x01}
+#define AUTOBAUDING_ANSWER "\6"//\1\2"
+#define AUTOBAUDING_ANSWER_CHAR_ARRAY {0x06}//,0x01,0x02}
 
 class MainWindow : public QMainWindow
 {
@@ -46,7 +47,11 @@ public:
 public slots:
     void fillControls();
     void fillStatusTab(bool status);
+    void startConnection();
+    void stopConnection();
+
     void dsrChangedHandle(bool status);
+    void ctsChangedHandle(bool status);
     void setDTR();
     void setRTS();
 
@@ -57,17 +62,22 @@ public slots:
     void onStopBitsChanged(int idx);
     void onTimeoutChanged(int val);
     void onOpenCloseButtonClicked();
+
     void onStartAutoBauding();
     void autoBaudingTimerHandle();
+    void onAutoBaudingCheckBoxEnable(int);
+    void checkNextAutoBauding();
 
     void onSendButtonClicked();
 
+    void onLineStatusCheck();
     void onReadyRead();
 
     void onPortAddedOrRemoved();
 
     void onPingButtonClicked();
     void onPingTimeout();
+    void checkCounterAndSendNextPing();
 private slots:
 
 private:
@@ -146,6 +156,9 @@ private:
 
     QLabel *autoBaudingLabel;
     QPushButton *autoBaudingButton;
+
+    QLabel *autoBaudingEnabledLabel;
+    QCheckBox *autoBaudingEnabledCheckBox;
     QTimer *autoBaudingTimeoutTimer;
     QLabel *openClosePortLabel;
     QPushButton *openClosePortButton;
@@ -187,6 +200,7 @@ private:
 
     //Port
     QTimer *timer;
+    QTimer *lineStatusTimer;
     QextSerialPort *port;
     QextSerialEnumerator *enumerator;
 
@@ -194,6 +208,8 @@ private:
     QTime pingTime;
     QTimer *pingTimeoutTimer;
     int pingCounter;
+    int pingAvgTime;
+    int pingAvgCounter;
     /*
 time.start();
 time.elapsed();
