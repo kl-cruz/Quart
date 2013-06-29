@@ -22,6 +22,7 @@
 #include <QComboBox>
 #include <QTextEdit>
 #include <QCheckBox>
+#include "src_hex/qhexedit.h"
 
 class QextSerialPort;
 class QextSerialEnumerator;
@@ -44,6 +45,10 @@ public:
     ~MainWindow();
     
 public slots:
+
+    void setOverwriteMode(bool mode);
+    void loadFile(const QString &fileName);
+
     void fillControls();
     void fillStatusTab(bool status);
     void startConnection();
@@ -68,9 +73,14 @@ public slots:
     void onStartAutoBauding();
     void autoBaudingTimerHandle();
     void onAutoBaudingCheckBoxEnable(int);
+    void onPingCheckBoxEnable(int);
 
     void onSendButtonClicked();
     void onClearButtonClicked();
+
+    void onSendHexButtonClicked();
+    void onClearHexButtonClicked();
+    void onOpenHexFileButtonCLicked();
 
     void onLineStatusCheck();
     void onReadyRead();
@@ -164,6 +174,9 @@ private:
 
     QLabel *autoBaudingEnabledLabel;
     QCheckBox *autoBaudingEnabledCheckBox;
+    QLabel *pingEnabledLabel;
+    QCheckBox *pingEnabledCheckBox;
+    bool pingEnabled;
     QTimer *autoBaudingTimeoutTimer;
     QLabel *openClosePortLabel;
     QPushButton *openClosePortButton;
@@ -186,8 +199,24 @@ private:
 
     QFormLayout *portinfoLayout;
 
-    //starttab
+    //binaryTab
     QWidget *binaryTab;
+
+    QHexEdit *hexConsole;
+    QHexEdit *sendHexConsole;
+    QVBoxLayout* binModeTabLayout;
+    QHBoxLayout* binModeButtonsLayout;
+    QWidget *binButtons;
+    QPushButton *sendHexButton;
+    QPushButton *clearHexButton;
+    QPushButton *openHexFileButton;
+    QWidget *signalsHexPanel;
+    QHBoxLayout* signalsHexPanelLayout;
+    QPushButton *setHexDTRButton;
+    QPushButton *setHexRTSButton;
+    QPushButton *DSRHexButton;
+    QPushButton *CTSHexButton;
+
 
     //Port
     QTimer *timer;

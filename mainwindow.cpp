@@ -4,6 +4,7 @@
 #include "iostream"
 #include <QMessageBox>
 #include <QMovie>
+#include <QFileDialog>
 
 #include "src/qextserialport.h"
 MainWindow::MainWindow(QWidget *parent) :
@@ -121,7 +122,7 @@ void MainWindow::fillStatusTab(bool status)
 
 void MainWindow::startConnection()
 {
-    if(autoBaudingEnabledCheckBox->checkState()!=Qt::Checked)
+    if((autoBaudingEnabledCheckBox->checkState()!=Qt::Checked)&&(pingEnabledCheckBox->checkState()!=Qt::Checked))
     {
         binaryTab->setEnabled(true);
     }
@@ -139,6 +140,7 @@ void MainWindow::startConnection()
     timeoutValue->setEnabled(false);
     autoBaudingButton->setEnabled(false);
     autoBaudingEnabledCheckBox->setEnabled(false);
+    pingEnabledCheckBox->setEnabled(false);
     fillStatusTab(true);
 
 }
@@ -178,6 +180,7 @@ void MainWindow::stopConnection()
     timeoutValue->setEnabled(true);
 
     autoBaudingEnabledCheckBox->setEnabled(true);
+    pingEnabledCheckBox->setEnabled(true);
     fillStatusTab(false);
 }
 
@@ -227,15 +230,15 @@ void MainWindow::setRTS()
 void MainWindow::onReadyRead()
 {
     if (port->bytesAvailable()) {
-        QString fromPort=QString::fromLatin1(port->readAll());
-        /*for(int i=0;i<fromPort.count();++i)
-        {
-            std::cout<<"odebrano: "<<static_cast<unsigned short>(static_cast<unsigned char>(fromPort.toStdString().c_str()[i]))<<std::endl;
-        }*/
+        QByteArray readData=port->readAll();
+        QString fromPort=QString::fromLatin1(readData);
+
+
         if(port->isOpen()){
-        if ((fromPort.toStdString().c_str()[0]==PING_SEND_VALUE) && (fromPort.count()==1)){
+        if ((fromPort.toStdString().c_str()[0]==PING_SEND_VALUE) && (fromPort.count()==1)&&(pingEnabled)){
             char ping=PING_RECEIVE_VALUE;
             port->write(&ping,1);
+            return;
         }
         else
             if ((fromPort.toStdString().c_str()[0]==PING_RECEIVE_VALUE)&& (fromPort.count()==1)){
@@ -245,6 +248,8 @@ void MainWindow::onReadyRead()
                 pingAvgCounter++;
                 pingAvgTime+=elapsed;
                 checkCounterAndSendNextPing();
+                if(pingEnabledCheckBox->checkState()==Qt::Checked)
+                    return;
 
         }
         else
@@ -263,11 +268,12 @@ void MainWindow::onReadyRead()
                     disableTab->setVisible(false);
                     return;
                 }
-
-        textConsole->moveCursor(QTextCursor::End);
-        textConsole->insertPlainText(fromPort);
-
+            hexConsole->insert(hexConsole->data().count(),readData);
+            hexConsole->setData(hexConsole->data());
+            textConsole->moveCursor(QTextCursor::End);
+            textConsole->insertPlainText(fromPort);
         }
+
     }
 
 
@@ -472,11 +478,23 @@ void MainWindow::onAutoBaudingCheckBoxEnable(int)
     }
 }
 
+void MainWindow::onPingCheckBoxEnable(int)
+{
+    if(pingEnabledCheckBox->checkState()==Qt::Checked)
+    {
+        pingEnabled==true;
+    }
+    else
+    {
+        pingEnabled==false;
+    }
+}
+
 void MainWindow::onSendButtonClicked()
 {
     if (port->isOpen() && !sendTextConsole->toPlainText().isEmpty()){
         QString toSend=sendTextConsole->toPlainText().toLatin1()+terminatorString;
-        std::cout<<"wysyłany tekst:"<<toSend.toStdString()<<" Terminator:"<<terminatorString.toStdString()<<std::endl;
+        //std::cout<<"wysyłany tekst:"<<toSend.toStdString()<<" Terminator:"<<terminatorString.toStdString()<<std::endl;
         port->write(toSend.toStdString().c_str());
         sendTextConsole->clear();
     }
@@ -485,6 +503,27 @@ void MainWindow::onSendButtonClicked()
 void MainWindow::onClearButtonClicked()
 {
     textConsole->clear();
+}
+
+void MainWindow::onSendHexButtonClicked()
+{
+    if (port->isOpen() && (sendHexConsole->data().count()>0)){
+        port->write(sendHexConsole->data());
+        sendHexConsole->setData(QByteArray(""));
+    }
+}
+
+void MainWindow::onClearHexButtonClicked()
+{
+    hexConsole->setData(QByteArray(""));
+}
+
+void MainWindow::onOpenHexFileButtonCLicked()
+{
+    QString fileName = QFileDialog::getOpenFileName(this);
+        if (!fileName.isEmpty()) {
+            loadFile(fileName);
+        }
 }
 
 void MainWindow::onLineStatusCheck()
@@ -567,6 +606,31 @@ void MainWindow::checkCounterAndSendNextPing()
          }
 }
 
+void MainWindow::setOverwriteMode(bool mode)
+{
+  /*  if (mode)
+        lbOverwriteMode->setText(tr("Overwrite"));
+    else
+        lbOverwriteMode->setText(tr("Insert"));*/
+}
+
+void MainWindow::loadFile(const QString &fileName)
+{
+
+    QFile file(fileName);
+    if (!file.open(QFile::ReadOnly)) {
+        QMessageBox::warning(this, tr("SDI"),
+                             tr("Cannot read file %1:\n%2.")
+                             .arg(fileName)
+                             .arg(file.errorString()));
+        return;
+    }
+
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    sendHexConsole->setData(file.readAll());
+    QApplication::restoreOverrideCursor();
+
+}
 
 void MainWindow::createUI()
 {
@@ -659,10 +723,10 @@ void MainWindow::createUI()
 
     autoBaudingEnabledLabel=new QLabel("Aktywacja autobaudingu (deaktywuje wysyłanie binarne)");
     autoBaudingEnabledCheckBox=new QCheckBox();
+    pingEnabledLabel=new QLabel("Aktywacja ping (deaktywuje wysyłanie binarne)");
+    pingEnabledCheckBox=new QCheckBox();
 
     openClosePortLabel=new QLabel("Uruchamianie portu");
-
-
 
     baudRateBox= new QComboBox();
 
@@ -708,6 +772,7 @@ void MainWindow::createUI()
     optionsLayout->addRow(timeoutLabel,timeoutValue);
     optionsLayout->addRow(autoBaudingEnabledLabel,autoBaudingEnabledCheckBox);
     optionsLayout->addRow(autoBaudingLabel,autoBaudingButton);
+    optionsLayout->addRow(pingEnabledLabel,pingEnabledCheckBox);
     optionsLayout->addRow(openClosePortLabel,openClosePortButton);
     optionsTab->setLayout(optionsLayout);
 
@@ -798,6 +863,54 @@ void MainWindow::createUI()
     tabWidget->addTab(binaryTab, QString());
     tabWidget->setTabText(tabWidget->indexOf(binaryTab), QApplication::translate("MainWindow", "Tryb binarny", 0));
 
+    binModeTabLayout= new QVBoxLayout(binaryTab);
+    binModeTabLayout->setAlignment(Qt::AlignCenter);
+
+    hexConsole=new QHexEdit();
+    hexConsole->setOverwriteMode(false);
+    //textModeScrollBar=new QScrollBar(textConsole);
+    hexConsole->setReadOnly(true);
+    //textConsole->setAlignment(Qt::AlignLeft);
+    //textConsole->setVerticalScrollBar(textModeScrollBar);
+    //textConsole->setFont(font);
+
+    signalsHexPanel=new QWidget();
+    signalsHexPanelLayout = new QHBoxLayout(signalsHexPanel);
+    setHexDTRButton=new QPushButton("Stan DTR");
+    setHexRTSButton=new QPushButton("Stan RTS");
+
+    DSRHexButton=new QPushButton("Stan DSR");
+    DSRHexButton->setEnabled(false);
+    CTSHexButton=new QPushButton("Stan CTS");
+    CTSHexButton->setEnabled(false);
+    signalsHexPanelLayout->addWidget(setHexDTRButton);
+    signalsHexPanelLayout->addWidget(setHexRTSButton);
+    signalsHexPanelLayout->addWidget(DSRHexButton);
+    signalsHexPanelLayout->addWidget(CTSHexButton);
+
+    sendHexConsole=new QHexEdit();
+    sendHexConsole->setMaximumHeight(height()/4);
+
+    //sendTextConsole->setFont(font);
+    binButtons=new QWidget();
+    binModeButtonsLayout = new QHBoxLayout(binButtons);
+    sendHexButton=new QPushButton();
+    sendHexButton->setText("Wyślij");
+    clearHexButton=new QPushButton();
+    clearHexButton->setText("Wyczyść konsolę");
+    openHexFileButton=new QPushButton();
+    openHexFileButton->setText("Otwórz plik");
+    binModeButtonsLayout->addWidget(sendHexButton);
+    binModeButtonsLayout->addWidget(clearHexButton);
+    binModeButtonsLayout->addWidget(openHexFileButton);
+    binModeTabLayout->addWidget(hexConsole);
+    binModeTabLayout->addWidget(signalsHexPanel);
+    binModeTabLayout->addWidget(sendHexConsole);
+    binModeTabLayout->addWidget(binButtons);
+
+    binaryTab->setLayout(binModeTabLayout);
+
+
     binaryTab->setEnabled(false);
     //portinfo
     portinfoTab=new QWidget();
@@ -819,14 +932,6 @@ void MainWindow::createUI()
     setCharacterFormatValue=new QLabel("wartość");
     setStopBitsValue=new QLabel("wartość");
     setFlowControlValue=new QLabel("wartość");
-    /*terminatorLabel=new QLabel("Wybór terminatora");
-    ownTerminatorLabel=new QLabel("Własny terminatora");
-    parityLabel=new QLabel("Parzystość");
-    timeoutEnableLabel=new QLabel("Aktywność ograniczenia czasowego transakcji");
-    timeoutLabel=new QLabel("Ograniczenie czasowe transakcji");
-
-    autoBaudingLabel=new QLabel("Uruchom autobauding");
-    openClosePortLabel=new QLabel("Uruchamianie portu");*/
 
 
     portinfoLayout=new QFormLayout;
@@ -885,7 +990,12 @@ void MainWindow::createUI()
     connect(portBox, SIGNAL(editTextChanged(QString)), SLOT(onPortNameChanged(QString)));
     connect(openClosePortButton, SIGNAL(clicked()), SLOT(onOpenCloseButtonClicked()));
     connect(sendButton, SIGNAL(clicked()), SLOT(onSendButtonClicked()));
+    connect(sendHexButton, SIGNAL(clicked()),SLOT(onSendHexButtonClicked()));
+    connect(sendHexConsole, SIGNAL(overwriteModeChanged(bool)), this, SLOT(setOverwriteMode(bool)));
     connect(clearConsoleButton,SIGNAL(clicked()),SLOT(onClearButtonClicked()));
+    connect(clearHexButton,SIGNAL(clicked()),SLOT(onClearHexButtonClicked()));
+    connect(openHexFileButton,SIGNAL(clicked()),SLOT(onOpenHexFileButtonCLicked()));
+
     if(port->queryMode()==QextSerialPort::Polling){
         connect(timer, SIGNAL(timeout()), SLOT(onReadyRead()));
     }
@@ -894,6 +1004,7 @@ void MainWindow::createUI()
     connect(autoBaudingButton,SIGNAL(clicked()),SLOT(onStartAutoBauding()));
     connect(autoBaudingTimeoutTimer,SIGNAL(timeout()),SLOT(autoBaudingTimerHandle()));
     connect(autoBaudingEnabledCheckBox,SIGNAL(stateChanged(int)),SLOT(onAutoBaudingCheckBoxEnable(int)));
+    connect(pingEnabledCheckBox,SIGNAL(stateChanged(int)),SLOT(onPingCheckBoxEnable(int)));
 
     connect(lineStatusTimer, SIGNAL(timeout()), SLOT(onLineStatusCheck()));
     connect(setDTRButton, SIGNAL(clicked()), SLOT(setDTR()));
