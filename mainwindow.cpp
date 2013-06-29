@@ -87,6 +87,10 @@ void MainWindow::fillControls()
      CTSButton->setStyleSheet("background-color: red;color:black");
      setRTSButton->setStyleSheet("background-color:red;color:black");
      setDTRButton->setStyleSheet("background-color:red;color:black");
+     DSRHexButton->setStyleSheet("background-color: red;color:black");
+     CTSHexButton->setStyleSheet("background-color: red;color:black");
+     setHexRTSButton->setStyleSheet("background-color:red;color:black");
+     setHexDTRButton->setStyleSheet("background-color:red;color:black");
 
      fillStatusTab(false);
      ownTerminatorChar1Box->setEnabled(false);
@@ -189,9 +193,11 @@ void MainWindow::dsrChangedHandle(bool status)
     if(status)
     {
         DSRButton->setStyleSheet("background-color: red;color:black");
+        DSRHexButton->setStyleSheet("background-color: red;color:black");
     }
     else{
         DSRButton->setStyleSheet("background-color: green;color:white");
+        DSRHexButton->setStyleSheet("background-color: green;color:white");
     }
 }
 
@@ -200,9 +206,11 @@ void MainWindow::ctsChangedHandle(bool status)
     if(status)
     {
         CTSButton->setStyleSheet("background-color: red;color:black");
+        CTSHexButton->setStyleSheet("background-color: red;color:black");
     }
     else{
         CTSButton->setStyleSheet("background-color: green;color:white");
+        CTSHexButton->setStyleSheet("background-color: green;color:white");
     }
 }
 
@@ -210,20 +218,29 @@ void MainWindow::setDTR()
 {
     DTRstatus=!DTRstatus;
     port->setDtr(DTRstatus);
-    if(DTRstatus)
+    if(DTRstatus){
         setDTRButton->setStyleSheet("background-color:green;color:white");
-    else
+        setHexDTRButton->setStyleSheet("background-color:green;color:white");
+    }
+    else{
         setDTRButton->setStyleSheet("background-color:red;color:black");
+        setHexDTRButton->setStyleSheet("background-color:red;color:black");
+    }
 }
 
 void MainWindow::setRTS()
 {
     RTSstatus=!RTSstatus;
     port->setRts(RTSstatus);
-    if(RTSstatus)
+    if(RTSstatus){
         setRTSButton->setStyleSheet("background-color:green;color:white");
-    else
+        setHexRTSButton->setStyleSheet("background-color:green;color:white");
+
+    }
+    else{
         setRTSButton->setStyleSheet("background-color:red;color:black");
+        setHexRTSButton->setStyleSheet("background-color:red;color:black");
+    }
 }
 
 
@@ -268,8 +285,10 @@ void MainWindow::onReadyRead()
                     disableTab->setVisible(false);
                     return;
                 }
+        if(binaryTab->isEnabled()){
             hexConsole->insert(hexConsole->data().count(),readData);
             hexConsole->setData(hexConsole->data());
+        }
             textConsole->moveCursor(QTextCursor::End);
             textConsole->insertPlainText(fromPort);
         }
@@ -482,11 +501,11 @@ void MainWindow::onPingCheckBoxEnable(int)
 {
     if(pingEnabledCheckBox->checkState()==Qt::Checked)
     {
-        pingEnabled==true;
+        pingEnabled=true;
     }
     else
     {
-        pingEnabled==false;
+        pingEnabled=false;
     }
 }
 
@@ -639,7 +658,7 @@ void MainWindow::createUI()
     if (this->objectName().isEmpty())
         this->setObjectName(QStringLiteral("MainWindow"));
     this->resize(640, 700);
-    QString windowTitle="";
+    QString windowTitle="RS232 terminal";
     this->setWindowTitle(QApplication::translate("MainWindow", windowTitle.toStdString().c_str(), 0));
 
     //panel during teaching
@@ -683,7 +702,7 @@ void MainWindow::createUI()
     tabWidget->setObjectName(QStringLiteral("tabWidget"));
 
     //start tab
-    startTab=new QWidget();
+    /*startTab=new QWidget();
     startTab->setObjectName(QStringLiteral("startTab"));
     tabWidget->addTab(startTab, QString());
     tabWidget->setTabText(tabWidget->indexOf(startTab), QApplication::translate("MainWindow", "Witaj!", 0));
@@ -694,7 +713,7 @@ void MainWindow::createUI()
 
     startTabLayout=new QVBoxLayout();
     startTabLayout->addWidget(startLabel);
-    startTab->setLayout(startTabLayout);
+    startTab->setLayout(startTabLayout);*/
 
 
 
@@ -792,7 +811,6 @@ void MainWindow::createUI()
     textConsole->setReadOnly(true);
     textConsole->setAlignment(Qt::AlignLeft);
     textConsole->setVerticalScrollBar(textModeScrollBar);
-    //textConsole->setFont(font);
 
     signalsPanel=new QWidget();
     signalsPanelLayout = new QHBoxLayout(signalsPanel);
@@ -827,11 +845,6 @@ void MainWindow::createUI()
     textModeTabLayout->addWidget(signalsPanel);
     textModeTabLayout->addWidget(sendTextConsole);
     textModeTabLayout->addWidget(consoleButtons);
-
-
-
-
-
 
     //ping
 
@@ -868,11 +881,7 @@ void MainWindow::createUI()
 
     hexConsole=new QHexEdit();
     hexConsole->setOverwriteMode(false);
-    //textModeScrollBar=new QScrollBar(textConsole);
     hexConsole->setReadOnly(true);
-    //textConsole->setAlignment(Qt::AlignLeft);
-    //textConsole->setVerticalScrollBar(textModeScrollBar);
-    //textConsole->setFont(font);
 
     signalsHexPanel=new QWidget();
     signalsHexPanelLayout = new QHBoxLayout(signalsHexPanel);
@@ -891,7 +900,6 @@ void MainWindow::createUI()
     sendHexConsole=new QHexEdit();
     sendHexConsole->setMaximumHeight(height()/4);
 
-    //sendTextConsole->setFont(font);
     binButtons=new QWidget();
     binModeButtonsLayout = new QHBoxLayout(binButtons);
     sendHexButton=new QPushButton();
@@ -944,15 +952,6 @@ void MainWindow::createUI()
     portinfoLayout->addRow(setFlowControlLabel,setFlowControlValue);
 
     portinfoTab->setLayout(portinfoLayout);
-
-
-
-
-
-
-
-
-
 
     gridLayout->addWidget(tabWidget, 0, 0, 1, 1);
 
@@ -1009,6 +1008,8 @@ void MainWindow::createUI()
     connect(lineStatusTimer, SIGNAL(timeout()), SLOT(onLineStatusCheck()));
     connect(setDTRButton, SIGNAL(clicked()), SLOT(setDTR()));
     connect(setRTSButton, SIGNAL(clicked()), SLOT(setRTS()));
+    connect(setHexDTRButton, SIGNAL(clicked()), SLOT(setDTR()));
+    connect(setHexRTSButton, SIGNAL(clicked()), SLOT(setRTS()));
 
     connect(enumerator, SIGNAL(deviceDiscovered(QextPortInfo)), SLOT(onPortAddedOrRemoved()));
     connect(enumerator, SIGNAL(deviceRemoved(QextPortInfo)), SLOT(onPortAddedOrRemoved()));
