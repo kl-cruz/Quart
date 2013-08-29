@@ -357,7 +357,7 @@ void MainWindow::onOpenCloseButtonClicked()
         setDTR();
         setRTS();
         openClosePortButton->setText("Zakończ transmisję");
-        tabWidget->setCurrentIndex(2);
+        tabWidget->setCurrentIndex(1);
         startConnection();
         }
         else
