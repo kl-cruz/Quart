@@ -192,12 +192,12 @@ void MainWindow::dsrChangedHandle(bool status)
 {
     if(status)
     {
-        DSRButton->setStyleSheet("background-color: red;color:black");
-        DSRHexButton->setStyleSheet("background-color: red;color:black");
+        DSRButton->setStyleSheet("background-color: green;color:black");
+        DSRHexButton->setStyleSheet("background-color: green;color:black");
     }
     else{
-        DSRButton->setStyleSheet("background-color: green;color:white");
-        DSRHexButton->setStyleSheet("background-color: green;color:white");
+        DSRButton->setStyleSheet("background-color: red;color:white");
+        DSRHexButton->setStyleSheet("background-color: red;color:white");
     }
 }
 
@@ -205,12 +205,12 @@ void MainWindow::ctsChangedHandle(bool status)
 {
     if(status)
     {
-        CTSButton->setStyleSheet("background-color: red;color:black");
-        CTSHexButton->setStyleSheet("background-color: red;color:black");
+        CTSButton->setStyleSheet("background-color: green;color:black");
+        CTSHexButton->setStyleSheet("background-color: green;color:black");
     }
     else{
-        CTSButton->setStyleSheet("background-color: green;color:white");
-        CTSHexButton->setStyleSheet("background-color: green;color:white");
+        CTSButton->setStyleSheet("background-color: red;color:white");
+        CTSHexButton->setStyleSheet("background-color: red;color:white");
     }
 }
 
@@ -575,6 +575,11 @@ void MainWindow::onLineStatusCheck()
 
 void MainWindow::onPingButtonClicked()
 {
+    if(pingEnabled==false)
+    {
+        pingConsole->append("Opcja ping jest nieaktywna.");
+        return;
+    }
     pingConsole->clear();
     pingConsole->append("\n->PING rs232");
     if (port->isOpen()){
