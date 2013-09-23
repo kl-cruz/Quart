@@ -98,6 +98,7 @@ void MainWindow::fillControls()
      DTRstatus=true;
      RTSstatus=true;
      terminatorString="";
+     pingEnabled=false;
 }
 
 void MainWindow::fillStatusTab(bool status)
