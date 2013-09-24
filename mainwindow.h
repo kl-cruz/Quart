@@ -108,6 +108,7 @@ private:
     QLabel *autoBaudingInfoLabel;
     QLabel *busyMovieLabel;
 
+
     //starttab
     QWidget *startTab;
     QLabel *startLabel;
@@ -223,6 +224,8 @@ private:
     QTimer *lineStatusTimer;
     QextSerialPort *port;
     QextSerialEnumerator *enumerator;
+    QString buferredDataFromPort;
+    QString buferredData;
 
     //ping
     QTime pingTime;
