@@ -273,7 +273,7 @@ void MainWindow::onReadyRead()
                 else
                     if((fromPort.toStdString()==AUTOBAUDING_QUERY) && (autoBaudingEnabledCheckBox->checkState()==Qt::Checked))
                     {
-                        std::cout<<"Autobauding query"<<std::endl;
+                        //std::cout<<"Autobauding query"<<std::endl;
                         char resp[]=AUTOBAUDING_ANSWER_CHAR_ARRAY;
                         port->write(resp,sizeof(resp));
                         return;
@@ -281,7 +281,7 @@ void MainWindow::onReadyRead()
                     }
                     else if((fromPort.toStdString()==AUTOBAUDING_ANSWER) && (autoBaudingEnabledCheckBox->checkState()==Qt::Checked))
                     {
-                        std::cout<<"Autobauding answer"<<std::endl;
+                        //std::cout<<"Autobauding answer"<<std::endl;
                         autoBaudingTimeoutTimer->stop();
                         disableTab->setVisible(false);
                         return;
@@ -302,18 +302,17 @@ void MainWindow::onReadyRead()
                 int lastTerminatorPosition=-1;
                 QList<int> terminatorsPositions;
                 terminatorsPositions.clear();
-                buferredData+=fromPort;
 
                 if(terminatorString.count()==1)
                 {
-                    std::cout<<"Terminator o długości 1"<<std::endl;
+                    //std::cout<<"Terminator o długości 1"<<std::endl;
                     //szukanie terminatorów
                     for(int i=0;i<fromPort.size();++i)
                     {
-                        std::cout<<"znak:"<<static_cast<unsigned short>(static_cast<unsigned char>(fromPort.toStdString().c_str()[i]))<<std::endl;
+                        //std::cout<<"znak:"<<static_cast<unsigned short>(static_cast<unsigned char>(fromPort.toStdString().c_str()[i]))<<std::endl;
                         if(terminatorString[0]==fromPort[i])
                         {
-                            std::cout<<"Znaleziono terminator na pozycji:"<<i<<std::endl;
+                            //std::cout<<"Znaleziono terminator na pozycji:"<<i<<std::endl;
                             terminatorsPositions<<i;
                             lastTerminatorPosition=i;
                         }
@@ -322,7 +321,7 @@ void MainWindow::onReadyRead()
                     {
                         /*test:aaaaaaabaaacaadaeaaaaaagahaaiajakaaaaaaaaalaamanaaoapaaaaaqaaraaasaataauaaaawaaaaaaaaaavaaxaaaaaayaaaaza*/
                         int startpos=0;
-                        std::cout<<"Ilość terminatorów:"<<terminatorsPositions.size()<<" tekst:"<<fromPort.toStdString()<<std::endl;
+                        //std::cout<<"Ilość terminatorów:"<<terminatorsPositions.size()<<" tekst:"<<fromPort.toStdString()<<std::endl;
                         for(int i=0;i<terminatorsPositions.size();++i)
                         {
                             if(terminatorsPositions[i]==startpos)
@@ -330,7 +329,7 @@ void MainWindow::onReadyRead()
                                 startpos=terminatorsPositions[i]+1;
                                 continue;
                             }
-                            std::cout<<"Dodaję dane:"<<fromPort.mid(startpos,terminatorsPositions[i]-1).toStdString()<<" od:"<<startpos<<" do:"<<terminatorsPositions[i]-1<<std::endl;
+                            //std::cout<<"Dodaję dane:"<<fromPort.mid(startpos,terminatorsPositions[i]-1).toStdString()<<" od:"<<startpos<<" do:"<<terminatorsPositions[i]-1<<std::endl;
                             buferredDataFromPort+=fromPort.mid(startpos,terminatorsPositions[i]-1);
                             startpos=terminatorsPositions[i]+1;
                         }
@@ -358,15 +357,17 @@ void MainWindow::onReadyRead()
 
                 else if(terminatorString.count()==2)
                 {
-                    std::cout<<"Terminator o długości 2"<<std::endl;
+                    buferredData+=fromPort;
+                    //std::cout<<"Terminator o długości 2"<<std::endl;
                     //szukanie terminatorów
-                    for(int i=0;i<fromPort.size();++i)
+                    //std::cout<<"tekst w buforze: "<<buferredData.toStdString()<<std::endl;
+                    for(int i=0;i<buferredData.size();++i)
                     {
-                        std::cout<<"znak:"<<static_cast<unsigned short>(static_cast<unsigned char>(fromPort.toStdString().c_str()[i]))<<std::endl;
-                        if(terminatorString[0]==fromPort[i])
-                            if(terminatorString[1]==fromPort[i+1])
+                        //std::cout<<"pozycja: "<<i<<" znak:"<<static_cast<unsigned short>(static_cast<unsigned char>(buferredData.toStdString().c_str()[i]))<<std::endl;
+                        if(terminatorString[0]==buferredData[i])
+                            if(terminatorString[1]==buferredData[i+1])
                         {
-                            std::cout<<"Znaleziono terminator na pozycji:"<<i<<std::endl;
+                            //std::cout<<"Znaleziono terminator na pozycji:"<<i<<std::endl;
                             terminatorsPositions<<i;
                             lastTerminatorPosition=i;
                             ++i;
@@ -376,18 +377,20 @@ void MainWindow::onReadyRead()
                     {
                         /*test:accbcccccdcceccfccgcchcciccjcckcclccmccnccoccpccqccrccscctccuccwccvccxcycczcc*/
                         int startpos=0;
-                        std::cout<<"Ilość terminatorów:"<<terminatorsPositions.size()<<" tekst:"<<fromPort.toStdString()<<std::endl;
+                        //std::cout<<"Ilość terminatorów:"<<terminatorsPositions.size()<<" tekst:"<<buferredData.toStdString()<<std::endl;
                         for(int i=0;i<terminatorsPositions.size();++i)
                         {
-                            if(terminatorsPositions[i]==startpos)
+                            if(terminatorsPositions[i]==0)
                             {
                                 startpos=terminatorsPositions[i]+2;
                                 continue;
                             }
-                            std::cout<<"Dodaję dane:"<<fromPort.mid(startpos,terminatorsPositions[i]-1).toStdString()<<" od:"<<startpos<<" do:"<<terminatorsPositions[i]-1<<std::endl;
-                            buferredDataFromPort+=fromPort.mid(startpos,terminatorsPositions[i]-1);
-                            startpos=terminatorsPositions[i]+3;
+                            //std::cout<<"Dodaję dane:"<<buferredData.mid(startpos,terminatorsPositions[i]).toStdString()<<" od:"<<startpos<<" do:"<<terminatorsPositions[i]<<std::endl;
+                            buferredDataFromPort+=buferredData.mid(startpos,terminatorsPositions[i]-startpos);
+                            //std::cout<<"W buforze do wypisania:"<<buferredDataFromPort.toStdString()<<std::endl;
+                            startpos=terminatorsPositions[i]+2;
                         }
+                        //buferredData.remove(0,lastTerminatorPosition+1);
 
                         if(binaryTab->isEnabled()){
                             hexConsole->insert(hexConsole->data().count(),buferredDataFromPort.toLatin1());
@@ -396,28 +399,15 @@ void MainWindow::onReadyRead()
                         textConsole->moveCursor(QTextCursor::End);
                         textConsole->insertPlainText(buferredDataFromPort);
                         buferredDataFromPort.clear();
-                        buferredDataFromPort+=fromPort.right(fromPort.size()-(lastTerminatorPosition+2));
+                        buferredData=buferredData.right(buferredData.size()-(lastTerminatorPosition+2));
 
-                    }
-                    else
-                    {
-                        buferredDataFromPort+=fromPort;
                     }
 
                 }
             }
-            std::cout<<"----------------------------"<<std::endl;
+            //std::cout<<"----------------------------"<<std::endl;
         }
-        //szukanie terminatora
-        //jeśli nie ma:
-        //buferredDataFromPort+=
-                //Jeśli jest
-
-
     }
-
-
-
 }
 
 void MainWindow::onPortAddedOrRemoved()
