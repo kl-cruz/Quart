@@ -61,6 +61,7 @@ public slots:
 
     void onPortNameChanged(const QString &name);
     void onBaudRateChanged(int idx);
+    void onFlowControlChanged(int idx);
     void onParityChanged(int idx);
     void onDataBitsChanged(int idx);
     void onStopBitsChanged(int idx);
@@ -140,9 +141,8 @@ private:
     bool RTSstatus;
     QPushButton *DSRButton;
     QPushButton *CTSButton;
-
-    void teachConsoleAddText(QString text);
-    void teachConsoleAddOnlyPlainText(QString text);
+    bool DSRstatus;
+    bool CTSstatus;
 
     //OptionsTab
     QWidget *optionsTab;

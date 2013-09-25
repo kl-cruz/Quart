@@ -20,6 +20,11 @@ MainWindow::~MainWindow()
 
 void MainWindow::fillControls()
 {
+#if defined(Q_OS_UNIX) || defined(qdoc)
+    baudRateBox->addItem("50",BAUD50);
+    baudRateBox->addItem("75",BAUD75);
+#endif
+
 #ifndef Q_OS_WIN
     baudRateBox->addItem("150",BAUD150);
 #endif
@@ -34,9 +39,27 @@ void MainWindow::fillControls()
     baudRateBox->addItem("57600",BAUD57600);
     baudRateBox->addItem("115200",BAUD115200);
 #ifndef Q_OS_WIN
-    baudRateBox->setCurrentIndex(6);
+    baudRateBox->setCurrentIndex(8);
 #else
     baudRateBox->setCurrentIndex(5);
+#endif
+
+#if defined(Q_OS_UNIX) || defined(qdoc)
+#  if (defined(B230400) && defined(B4000000))
+    baudRateBox->addItem("230400",BAUD230400);
+    baudRateBox->addItem("460800",BAUD460800);
+    baudRateBox->addItem("500000",BAUD500000);
+    baudRateBox->addItem("576000",BAUD576000);
+    baudRateBox->addItem("921600",BAUD921600);
+    baudRateBox->addItem("1000000",BAUD1000000);
+    baudRateBox->addItem("1152000",BAUD1152000);
+    baudRateBox->addItem("1500000",BAUD1500000);
+    baudRateBox->addItem("2000000",BAUD2000000);
+    baudRateBox->addItem("2500000",BAUD2500000);
+    baudRateBox->addItem("3000000",BAUD3000000);
+    baudRateBox->addItem("3500000",BAUD3500000);
+    baudRateBox->addItem("4000000",BAUD4000000);
+#  endif
 #endif
 
     foreach (QextPortInfo info, QextSerialEnumerator::getPorts())
@@ -191,6 +214,7 @@ void MainWindow::stopConnection()
 
 void MainWindow::dsrChangedHandle(bool status)
 {
+    DSRstatus=status;
     if(status)
     {
         DSRButton->setStyleSheet("background-color: green;color:black");
@@ -204,6 +228,7 @@ void MainWindow::dsrChangedHandle(bool status)
 
 void MainWindow::ctsChangedHandle(bool status)
 {
+    CTSstatus=status;
     if(status)
     {
         CTSButton->setStyleSheet("background-color: green;color:black");
@@ -305,12 +330,14 @@ void MainWindow::onReadyRead()
 
                 if(terminatorString.count()==1)
                 {
+                    buferredData+=fromPort;
                     //std::cout<<"Terminator o długości 1"<<std::endl;
                     //szukanie terminatorów
-                    for(int i=0;i<fromPort.size();++i)
+                    //std::cout<<"tekst w buforze: "<<buferredData.toStdString()<<std::endl;
+                    for(int i=0;i<buferredData.size();++i)
                     {
-                        //std::cout<<"znak:"<<static_cast<unsigned short>(static_cast<unsigned char>(fromPort.toStdString().c_str()[i]))<<std::endl;
-                        if(terminatorString[0]==fromPort[i])
+                        //std::cout<<"pozycja: "<<i<<" znak:"<<static_cast<unsigned short>(static_cast<unsigned char>(buferredData.toStdString().c_str()[i]))<<std::endl;
+                        if(terminatorString[0]==buferredData[i])
                         {
                             //std::cout<<"Znaleziono terminator na pozycji:"<<i<<std::endl;
                             terminatorsPositions<<i;
@@ -321,18 +348,20 @@ void MainWindow::onReadyRead()
                     {
                         /*test:aaaaaaabaaacaadaeaaaaaagahaaiajakaaaaaaaaalaamanaaoapaaaaaqaaraaasaataauaaaawaaaaaaaaaavaaxaaaaaayaaaaza*/
                         int startpos=0;
-                        //std::cout<<"Ilość terminatorów:"<<terminatorsPositions.size()<<" tekst:"<<fromPort.toStdString()<<std::endl;
+                        //std::cout<<"Ilość terminatorów:"<<terminatorsPositions.size()<<" tekst:"<<buferredData.toStdString()<<std::endl;
                         for(int i=0;i<terminatorsPositions.size();++i)
                         {
-                            if(terminatorsPositions[i]==startpos)
+                            if(terminatorsPositions[i]==0)
                             {
                                 startpos=terminatorsPositions[i]+1;
                                 continue;
                             }
-                            //std::cout<<"Dodaję dane:"<<fromPort.mid(startpos,terminatorsPositions[i]-1).toStdString()<<" od:"<<startpos<<" do:"<<terminatorsPositions[i]-1<<std::endl;
-                            buferredDataFromPort+=fromPort.mid(startpos,terminatorsPositions[i]-1);
+                            //std::cout<<"Dodaję dane:"<<buferredData.mid(startpos,terminatorsPositions[i]).toStdString()<<" od:"<<startpos<<" do:"<<terminatorsPositions[i]<<std::endl;
+                            buferredDataFromPort+=buferredData.mid(startpos,terminatorsPositions[i]-startpos);
+                            //std::cout<<"W buforze do wypisania:"<<buferredDataFromPort.toStdString()<<std::endl;
                             startpos=terminatorsPositions[i]+1;
                         }
+                        //buferredData.remove(0,lastTerminatorPosition+1);
 
                         if(binaryTab->isEnabled()){
                             hexConsole->insert(hexConsole->data().count(),buferredDataFromPort.toLatin1());
@@ -341,12 +370,8 @@ void MainWindow::onReadyRead()
                         textConsole->moveCursor(QTextCursor::End);
                         textConsole->insertPlainText(buferredDataFromPort);
                         buferredDataFromPort.clear();
-                        buferredDataFromPort+=fromPort.right(fromPort.size()-(lastTerminatorPosition+1));
+                        buferredData=buferredData.right(buferredData.size()-(lastTerminatorPosition+1));
 
-                    }
-                    else
-                    {
-                        buferredDataFromPort+=fromPort;
                     }
 
                 }
@@ -435,6 +460,11 @@ void MainWindow::onPortNameChanged(const QString &name)
 void MainWindow::onBaudRateChanged(int idx)
 {
     port->setBaudRate((BaudRateType)baudRateBox->itemData(idx).toInt());
+}
+
+void MainWindow::onFlowControlChanged(int idx)
+{
+    port->setFlowControl((FlowType)flowControlBox->itemData(idx).toInt());
 }
 
 void MainWindow::onParityChanged(int idx)
@@ -1094,6 +1124,7 @@ void MainWindow::createUI()
     enumerator->setUpNotifications();
 
     connect(baudRateBox, SIGNAL(currentIndexChanged(int)), SLOT(onBaudRateChanged(int)));
+    connect(flowControlBox, SIGNAL(currentIndexChanged(int)), SLOT(onFlowControlChanged(int)));
     connect(parityBox, SIGNAL(currentIndexChanged(int)), SLOT(onParityChanged(int)));
     connect(characterFormatBox, SIGNAL(currentIndexChanged(int)), SLOT(onDataBitsChanged(int)));
     connect(stopBitsBox, SIGNAL(currentIndexChanged(int)), SLOT(onStopBitsChanged(int)));
